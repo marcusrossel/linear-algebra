@@ -25,7 +25,11 @@ instance {n : ℕ} : has_add (vector ℝ n) := ⟨vector.add⟩
 
 protected theorem add_comm (v₁ v₂ : vector ℝ n) : v₁ + v₂ = v₂ + v₁ := sorry
 
+instance : is_commutative (vector ℝ n) (+) := ⟨vector.add_comm⟩
+
 protected theorem add_assoc (v₁ v₂ v₃ : vector ℝ n) : (v₁ + v₂) + v₃ = v₁ + (v₂ + v₃) := sorry
+
+instance : is_associative (vector ℝ n) (+) := ⟨vector.add_assoc⟩
 
 protected def smul (s : ℝ) : Π {n : ℕ}, vector ℝ n → vector ℝ n
   | 0       ⟨[], _⟩     := nil
@@ -157,38 +161,42 @@ end
 
 end vector
 
-def linear_combination (n : ℕ) := list (ℝ × (vector ℝ n))
+def linear_combination (vs : finset (vector ℝ n)) := { v // v ∈ vs } → ℝ
 
 namespace linear_combination
 
-def vectors (l : linear_combination n) : list (vector ℝ n) := l.map prod.snd
+variable {vs : finset (vector ℝ n)}
 
-def over (vs : list (vector ℝ n)) :=
-  { l : linear_combination n // (l.map prod.snd) = vs }
+noncomputable def scalars (l : linear_combination vs) : finset ℝ := vs.attach.image l
 
-variable {vs : list (vector ℝ n)}
-
-def over.scalars (l : linear_combination.over vs) : list ℝ := l.val.map prod.fst
-
-def over.value (l : linear_combination.over vs) : vector ℝ n :=
-  l.val.foldl (λ v e, v + e.fst * e.snd) 0
+def value (l : linear_combination vs) : vector ℝ n :=
+  vs.attach.fold (+) 0 (λ v, (l v) * ↑v)
 
 end linear_combination
 
-def span (vs : list (vector ℝ n)) : set (vector ℝ n) :=
-  { p | ∃ l : linear_combination.over vs, l.value = p }
+def span (vs : finset (vector ℝ n)) : set (vector ℝ n) :=
+  { p | ∃ l : linear_combination vs, l.value = p }
 
-def linearly_dependent (vs : list (vector ℝ n)) : Prop :=
-  ∃ (l : linear_combination.over vs) (i : ℕ) (h : i < l.scalars.length), (l.value = 0) ∧ (l.scalars.nth_le i h ≠ 0) 
+def linearly_dependent (vs : finset (vector ℝ n)) : Prop :=
+  ∃ (l : linear_combination vs), (l.value = 0) ∧ (l.scalars ≠ {0})
 
-theorem more_vecs_than_dim_to_linearly_dependent (vs : list (vector ℝ n)) :
-  (vs.length > n) → linearly_dependent vs := begin
+theorem more_vecs_than_dim_to_linearly_dependent (vs : finset (vector ℝ n)) :
+  (vs.card > n) → linearly_dependent vs := begin
   intro h,
   simp [linearly_dependent],
-  -- TODO: Is it easier to prove this by contradiction?
-  -- by_contra hc, 
-  -- simp at hc,
   sorry
 end
+
+-- Real vector space
+structure is_rvs (vs : set (vector ℝ n)) : Prop :=
+  (has_zero : (0 : vector ℝ n) ∈ vs)
+  (closed_smul : ∀ s (v ∈ vs), s * v ∈ vs)
+  (closed_add : ∀ (v₁ ∈ vs) (v₂ ∈ vs), v₁ + v₂ ∈ vs)
+
+def rvs (n : ℕ) := { vs : set (vector ℝ n) // is_rvs vs }
+
+theorem span_is_rvs (vs : finset (vector ℝ n)) : 
+  is_rvs (span vs) :=
+  sorry
 
 
