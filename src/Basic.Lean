@@ -31,18 +31,19 @@ protected def add (v₁ v₂ : vec n) : vec n :=
 instance {n : ℕ} : has_add (vec n) := ⟨vec.add⟩
 
 theorem add_pointwise (v₁ v₂ : vec n) (i : fin n) : 
-  (v₁ + v₂).nth i = (v₁.nth i) + (v₂.nth i) :=
-  sorry
+  (v₁ + v₂).nth i = (v₁.nth i) + (v₂.nth i) := by finish
 
-protected theorem add_comm (v₁ v₂ : vec n) : v₁ + v₂ = v₂ + v₁ := begin
+protected theorem add_comm (v₁ v₂ : vec n) : v₁ + v₂ = v₂ + v₁ :=
+  by { simp [(+), vec.add], ext, finish }
+
+instance : is_commutative (vec n) (+) := ⟨vec.add_comm⟩
+
+protected theorem add_assoc (v₁ v₂ v₃ : vec n) : 
+  (v₁ + v₂) + v₃ = v₁ + (v₂ + v₃) := begin
   simp [(+), vec.add],
   ext,
   sorry
 end
-
-instance : is_commutative (vec n) (+) := ⟨vec.add_comm⟩
-
-protected theorem add_assoc (v₁ v₂ v₃ : vec n) : (v₁ + v₂) + v₃ = v₁ + (v₂ + v₃) := sorry
 
 instance : is_associative (vec n) (+) := ⟨vec.add_assoc⟩
 
@@ -82,6 +83,10 @@ protected def sub (v₁ v₂ : vec n) : vec n :=
 instance : has_sub (vec n) := ⟨vec.sub⟩
 
 theorem sub_eq_add_neg (v₁ v₂ : vec n) : v₁ - v₂ = v₁ + (-v₂) := rfl
+
+theorem sub_eq_zero {v₁ v₂ : vec n} : 
+  (v₁ - v₂) = 0 ↔ v₁ = v₂ :=
+  sorry
 
 protected def sum : Π {n : ℕ}, vec n → ℝ
   | 0         _ := 0
@@ -166,23 +171,72 @@ namespace linear_combination
 
 variable {vs : finset (vec n)}
 
+def ext_iff (l₁ l₂ : linear_combination vs) :
+  (l₁ = l₂) ↔ (∀ v, l₁ v = l₂ v) := begin
+  constructor,
+  finish,
+  { intros h, ext v, exact h v }
+end
+
 noncomputable def scalars (l : linear_combination vs) : finset ℝ := vs.attach.image l
+
+theorem mem_scalars_iff (l : linear_combination vs) (s : ℝ) :
+  (s ∈ l.scalars) ↔ (∃ v, l v = s) := 
+  by simp [scalars]
+
+theorem mem_scalars (l : linear_combination vs) (v) :
+  (l v) ∈ l.scalars := begin
+  simp [scalars],
+  existsi v.val,
+  existsi v.property,
+  simp
+end
+
+theorem scalars_singleton {l : linear_combination vs} {s : ℝ} :
+  l.scalars = {s} → ∀ v, l v = s := begin
+  intros h v,
+  have hm := l.mem_scalars v,
+  rw [h] at hm,
+  exact finset.mem_singleton.mp hm
+end
 
 def value (l : linear_combination vs) : vec n :=
   vs.attach.fold (+) 0 (λ v, (l v) * ↑v)
+
+protected def sub (l₁ l₂ : linear_combination vs) : linear_combination vs :=
+  λ v, l₁ v - l₂ v
+
+instance : has_sub (linear_combination vs) := ⟨linear_combination.sub⟩
+
+theorem sub_value (l₁ l₂ : linear_combination vs) : 
+  (l₁ - l₂).value = l₁.value - l₂.value := 
+  sorry
+
+theorem sub_mem_scalars_iff (l₁ l₂ : linear_combination vs) (s : ℝ) :
+  (s ∈ (l₁ - l₂).scalars) ↔ (∃ v, s = l₁ v - l₂ v) := begin
+  simp [mem_scalars_iff],
+  constructor
+  ; intro h
+  ; obtain ⟨v, hv, h⟩ := h
+  ; existsi v
+  ; existsi hv
+  ; exact h.symm
+end
 
 end linear_combination
 
 def span (vs : finset (vec n)) : set (vec n) :=
   { p | ∃ l : linear_combination vs, l.value = p }
 
-def linearly_dependent (vs : finset (vec n)) : Prop :=
+abbreviation linearly_dependent (vs : finset (vec n)) : Prop :=
   ∃ (l : linear_combination vs), (l.value = 0) ∧ (l.scalars ≠ {0})
+
+abbreviation linearly_independent (vs : finset (vec n)) : Prop :=
+  ¬(linearly_dependent vs) 
 
 theorem more_vecs_than_dim_to_linearly_dependent (vs : finset (vec n)) :
   (vs.card > n) → linearly_dependent vs := begin
   intro h,
-  simp [linearly_dependent],
   sorry
 end
 
@@ -194,8 +248,27 @@ structure is_rvs (vs : set (vec n)) : Prop :=
 
 def rvs (n : ℕ) := { vs : set (vec n) // is_rvs vs }
 
+instance : has_coe (rvs n) (set (vec n)) := ⟨subtype.val⟩
+
 theorem span_is_rvs (vs : finset (vec n)) : 
   is_rvs (span vs) :=
   sorry
 
+structure basis (ρ : rvs n) :=
+  (vectors : finset (vec n))
+  (indep : linearly_independent vectors)
+  (spans : span vectors = ρ)
 
+theorem basis.unique_lin_comb {v : vec n} {ρ : rvs n} (b : basis ρ) {l₁ l₂ : linear_combination b.vectors} :
+  (v ∈ ρ.val) → (l₁.value = v) → (l₂.value = v) → l₁ = l₂ := begin
+  intros hv hl₁ hl₂,
+  rw [linear_combination.ext_iff],
+  intro x,
+  have hl := vec.sub_eq_zero.mpr (hl₁.trans hl₂.symm),
+  rw [←linear_combination.sub_value] at hl,
+  have hi := (not_exists.mp b.indep) (l₁ - l₂),
+  have h := (not_and_distrib.mp hi).resolve_left (not_not.mpr hl),
+  simp at h,
+  have hz := linear_combination.scalars_singleton h x,
+  exact sub_eq_zero.mp hz
+end
