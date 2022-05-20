@@ -3,6 +3,8 @@ import data.real.sqrt
 
 -- Based on https://www.khanacademy.org/math/linear-algebra
 
+prefix `√`:60 := real.sqrt
+
 def vec (n : ℕ) := fin n → ℝ
 
 variable {n : ℕ} 
@@ -33,8 +35,9 @@ instance {n : ℕ} : has_add (vec n) := ⟨vec.add⟩
 theorem add_pointwise (v₁ v₂ : vec n) (i : fin n) : 
   (v₁ + v₂).nth i = (v₁.nth i) + (v₂.nth i) := by finish
 
-protected theorem add_comm (v₁ v₂ : vec n) : v₁ + v₂ = v₂ + v₁ :=
-  by { simp [(+), vec.add], ext, finish }
+protected theorem add_comm (v₁ v₂ : vec n) : 
+  v₁ + v₂ = v₂ + v₁ := by 
+  { simp [(+), vec.add], ext, finish }
 
 instance : is_commutative (vec n) (+) := ⟨vec.add_comm⟩
 
@@ -88,16 +91,70 @@ theorem sub_eq_zero {v₁ v₂ : vec n} :
   (v₁ - v₂) = 0 ↔ v₁ = v₂ :=
   sorry
 
-protected def sum : Π {n : ℕ}, vec n → ℝ
-  | 0         _ := 0
-  | n@(_ + 1) v := (v.nth n) + v.drop.sum
+def dot_prod (v₁ v₂ : vec n) : ℝ :=
+  finset.univ.sum (λ i, (v₁ i) * (v₂ i))
+
+infixl ` ⬝ `:70  := vec.dot_prod
+
+theorem dot_prod_comm (v₁ v₂ : vec n) : 
+  v₁ ⬝ v₂ = v₂ ⬝ v₁ := by
+  simp [dot_prod, mul_comm]
+
+theorem add_dot_prod_distrib (v₁ v₂ v₃ : vec n) : 
+  (v₁ + v₂) ⬝ v₃ = (v₁ ⬝ v₃) + (v₂ ⬝ v₃) := begin
+  sorry
+end
+
+theorem smul_dot_prod_distrib (v₁ v₂ : vec n) (s : ℝ) : 
+  s * (v₁ ⬝ v₂) = (s * v₁) ⬝ (s * v₂) := begin
+  sorry
+end
+
+theorem sub_dot_prod_distrib (v₁ v₂ v₃ : vec n) : 
+  (v₁ - v₂) ⬝ v₃ = (v₁ ⬝ v₃) - (v₂ ⬝ v₃) := begin
+  sorry
+end
 
 -- Euclidian norm
 noncomputable def magnitude (v : vec n) : ℝ := 
-  real.sqrt (v.map (λ x, x ^ 2)).sum
+  √ finset.univ.sum (λ i, (v i) ^ 2)
+
+notation `∥` v `∥`  := vec.magnitude v
+
+theorem magnitude_squared_eq_self_dot_prod (v : vec n) :
+  ∥v∥ ^ 2 = (v ⬝ v) := begin
+  simp [magnitude, dot_prod],
+  have h : 0 ≤ finset.univ.sum (λ i, (v i) ^ 2) := finset.sum_nonneg (λ _ _, sq_nonneg _),
+  rw [real.sq_sqrt h],
+  congr,
+  ext i,
+  exact sq (v i)
+end
+
+theorem cauchy_schwarz_inequality (v₁ v₂ : vec n) :
+  |v₁ ⬝ v₂| ≤ ∥v₁∥ * ∥v₂∥ := begin
+  let p : ℝ → ℝ := λ t, ∥(t * v₂) - v₁∥ ^ 2,
+  have hp₁ : ∀ t, 0 ≤ p t := sorry,
+  have hp₂ : ∀ t, p t = (v₂ ⬝ v₂) * (t ^ 2) - 2 * (v₁ ⬝ v₂) * t + (v₁ ⬝ v₁) := begin
+    intro t,
+    calc 
+      p t = ∥(t * v₂) - v₁∥ ^ 2 : rfl
+      ... = (t * v₂ - v₁) ⬝ (t * v₂ - v₁) : magnitude_squared_eq_self_dot_prod _
+      ... = (t * v₂) ⬝ (t * v₂ - v₁) - v₁ ⬝ (t * v₂ - v₁) : sub_dot_prod_distrib _ _ _
+      ... = (t * v₂ - v₁) ⬝ (t * v₂) - v₁ ⬝ (t * v₂ - v₁) : by rw [dot_prod_comm]
+      ... = (t * v₂) ⬝ (t * v₂) - v₁ ⬝ (t * v₂) - v₁ ⬝ (t * v₂ - v₁) : by rw [sub_dot_prod_distrib]
+      ... = _ : sorry
+  end,
+  let a := v₂ ⬝ v₂,
+  let b := 2 * (v₁ ⬝ v₂),
+  let c := v₁ ⬝ v₁,
+  let t := b / (2 * a),
+  have hp₃ : p t = -(b ^ 2 / 4 * a) + c := sorry,
+  sorry
+end
 
 def is_unit (v : vec n) : Prop := 
-  v.magnitude = 1
+  ∥v∥ = 1
 
 -- Set of colinear vectors
 def line (v : vec n) : set (vec n) :=
@@ -272,3 +329,5 @@ theorem basis.unique_lin_comb {v : vec n} {ρ : rvs n} (b : basis ρ) {l₁ l₂
   have hz := linear_combination.scalars_singleton h x,
   exact sub_eq_zero.mp hz
 end
+
+
